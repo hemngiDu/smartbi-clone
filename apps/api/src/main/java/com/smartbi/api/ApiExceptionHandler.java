@@ -1,0 +1,7 @@
+package com.smartbi.api;
+import com.smartbi.query.QueryException;import jakarta.servlet.http.HttpServletRequest;import org.springframework.http.*;import org.springframework.web.bind.MethodArgumentNotValidException;import org.springframework.web.bind.annotation.*;import java.time.Instant;
+@RestControllerAdvice public class ApiExceptionHandler{
+ @ExceptionHandler(QueryException.class) ResponseEntity<ApiError> query(QueryException e,HttpServletRequest request){HttpStatus status=e.code().startsWith("SQL_")||e.code().startsWith("PARAMETER_")||e.code().equals("PAGE_LIMIT_EXCEEDED")||e.code().startsWith("DATASOURCE_URL")||e.code().startsWith("DATASOURCE_TYPE")||e.code().startsWith("CREDENTIAL_REFERENCE")?HttpStatus.BAD_REQUEST:HttpStatus.BAD_GATEWAY;return ResponseEntity.status(status).body(new ApiError(Instant.now(),status.value(),e.code(),e.getMessage(),request.getRequestURI()));}
+ @ExceptionHandler(MethodArgumentNotValidException.class) ResponseEntity<ApiError> invalid(MethodArgumentNotValidException e,HttpServletRequest request){return ResponseEntity.badRequest().body(new ApiError(Instant.now(),400,"VALIDATION_FAILED","Request validation failed",request.getRequestURI()));}
+ public record ApiError(Instant timestamp,int status,String code,String message,String path){}
+}

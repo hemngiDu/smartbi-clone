@@ -25,6 +25,7 @@ public class DataSourceDefinition {
     public DataSourceType getType() { return type; }
     public String getJdbcUrl() { return jdbcUrl; }
     public String getUsername() { return username; }
+    public String getCredentialReference() { return credentialReference; }
     public Instant getCreatedAt() { return createdAt; }
 }
 

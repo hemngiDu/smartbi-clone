@@ -1,6 +1,6 @@
 # SmartBI Clone
 
-首个可执行里程碑：Vue 3 + TypeScript 前端、Java 21 + Spring Boot API、PostgreSQL、Flyway 数据库迁移、数据源/SQL 数据集元数据与安全预览 API。
+Vue 3 + Spring Boot 数据源查询闭环：平台元数据与外部 PostgreSQL 严格分离，SQL 数据集始终在绑定数据源上执行。
 
 ## 一键启动
 
@@ -34,9 +34,31 @@ mvn spring-boot:run
 
 - `POST /api/v1/data-sources`：登记 JDBC 数据源元数据（只保存密钥引用，不接收明文密码）
 - `GET /api/v1/data-sources`：数据源列表
+- `POST /api/v1/data-sources/{id}/test`：使用临时只读连接测试数据源
 - `POST /api/v1/datasets`：创建只读 SQL 数据集
 - `GET /api/v1/datasets`：数据集列表
-- `POST /api/v1/datasets/{id}/preview`：预览查询，最多返回 500 行
+- `POST /api/v1/datasets/{id}/preview`：参数化分页预览，最多返回 500 行
+- `DELETE /api/v1/queries/{queryId}`：取消正在运行的查询（queryId 由客户端预先生成）
 
-当前预览执行使用平台 PostgreSQL 连接。外部数据源连接池、凭据加密、权限和租户隔离属于后续里程碑。
+数据源密码仅通过服务端环境变量解析，例如 `env://EXTERNAL_ANALYTICS_PASSWORD`；响应、异常和审计日志均不包含密码或凭据值。Compose 会启动独立的 `analytics-db` 并创建只读 `analytics_reader` 演示账号。
+
+预览请求示例：
+
+```json
+{"queryId":"d45258bf-7c55-4f0f-aa9e-e0644cd1ab08","parameters":{"minimum":100},"page":0,"size":100}
+```
+
+安全边界：只接受可解析为单条 `SELECT/WITH` 的 SQL；禁止注释和分号；所有值使用 JDBC 参数绑定；外部连接和事务均设为只读，并启用 30 秒超时、取消、分页和 500 行总上限。GaussDB/MySQL/Oracle 已保留类型与适配器接口，但尚未实现驱动及方言。
+
+## 验收命令
+
+```bash
+cd apps/api && mvn test
+npm test
+npm run build:web
+docker compose up --build -d
+docker compose ps
+curl http://localhost:8080/actuator/health
+docker compose down -v
+```
 

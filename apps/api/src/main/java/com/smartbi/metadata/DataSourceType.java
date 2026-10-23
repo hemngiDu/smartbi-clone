@@ -1,3 +1,3 @@
 package com.smartbi.metadata;
-public enum DataSourceType { POSTGRESQL }
+public enum DataSourceType { POSTGRESQL, GAUSSDB, MYSQL, ORACLE }
 
