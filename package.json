@@ -1,0 +1,11 @@
+{
+  "name": "smartbi-clone",
+  "private": true,
+  "workspaces": ["apps/*"],
+  "scripts": {
+    "dev:web": "npm --workspace @smartbi/web run dev",
+    "build:web": "npm --workspace @smartbi/web run build",
+    "test:web": "npm --workspace @smartbi/web run test"
+  }
+}
+

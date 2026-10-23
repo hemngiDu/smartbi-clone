@@ -1,0 +1,26 @@
+spring:
+  application:
+    name: smartbi-api
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/smartbi}
+    username: ${SPRING_DATASOURCE_USERNAME:smartbi}
+    password: ${SPRING_DATASOURCE_PASSWORD:smartbi_dev_password}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+server:
+  error:
+    include-message: always
+
