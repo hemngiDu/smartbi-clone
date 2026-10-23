@@ -25,6 +25,7 @@ public class ExternalPoolRegistry {
         this.adapters = adapters; this.credentials = credentials; this.maximumPoolSize = maximumPoolSize; this.connectionTimeoutMs = connectionTimeoutMs;
     }
     public DataSource get(DataSourceDefinition definition) { return pools.computeIfAbsent(definition.getId(), ignored -> create(definition)); }
+    public void validateDefinition(com.smartbi.metadata.DataSourceType type, String jdbcUrl) { if (type != com.smartbi.metadata.DataSourceType.POSTGRESQL) throw new QueryException("DATASOURCE_TYPE_UNSUPPORTED", "Only PostgreSQL is currently implemented"); adapters.stream().filter(a -> a instanceof PostgreSqlDataSourceAdapter).map(a -> (PostgreSqlDataSourceAdapter)a).findFirst().orElseThrow().validateUrl(jdbcUrl); }
     public HikariDataSource create(DataSourceDefinition definition) {
         var adapter = adapters.stream().filter(a -> a.supports(definition)).findFirst()
             .orElseThrow(() -> new QueryException("DATASOURCE_TYPE_UNSUPPORTED", "Data source type is not implemented yet"));

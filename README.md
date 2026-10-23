@@ -32,6 +32,8 @@ mvn spring-boot:run
 
 ## API
 
+所有 `/api/**` 请求都必须携带 `X-API-Key`。本地 Compose 演示值见 `.env.example`；生产环境必须从部署密钥管理注入强密钥。
+
 - `POST /api/v1/data-sources`：登记 JDBC 数据源元数据（只保存密钥引用，不接收明文密码）
 - `GET /api/v1/data-sources`：数据源列表
 - `POST /api/v1/data-sources/{id}/test`：使用临时只读连接测试数据源
@@ -48,7 +50,11 @@ mvn spring-boot:run
 {"queryId":"d45258bf-7c55-4f0f-aa9e-e0644cd1ab08","parameters":{"minimum":100},"page":0,"size":100}
 ```
 
-安全边界：只接受可解析为单条 `SELECT/WITH` 的 SQL；禁止注释和分号；所有值使用 JDBC 参数绑定；外部连接和事务均设为只读，并启用 30 秒超时、取消、分页和 500 行总上限。GaussDB/MySQL/Oracle 已保留类型与适配器接口，但尚未实现驱动及方言。
+安全边界：空或未知 API key 默认拒绝；`ADMIN` 可跨所有者访问，`EDITOR` 可创建资源，其余身份只读。非管理员的数据源、数据集、预览、连接测试与查询取消均按持久化所有者隔离。
+
+PostgreSQL JDBC URL 必须是规范 URI，主机和端口必须命中 `SMARTBI_ALLOWED_DB_HOSTS` / `SMARTBI_ALLOWED_DB_PORTS`。拒绝 user-info、fragment、连接参数、其他协议及非允许目标；Compose 只允许隔离网络内的 `analytics-db`。
+
+SQL 必须解析为单条 `SELECT/WITH`；词法层拒绝写语句、写入型 CTE、`SELECT INTO`、堆叠语句和已知 PostgreSQL 副作用函数。命名参数词法器理解 `::` cast、单双引号、转义、美元引用和注释，值始终通过 JDBC 绑定。这是纵深防御而非对任意数据库函数纯度的形式化证明：生产仍必须使用最小权限只读账号。执行时还会设置只读事务、PostgreSQL `default_transaction_read_only=on`、30 秒超时、取消、分页和 500 行总上限。GaussDB/MySQL/Oracle 仅保留接口，尚未实现驱动及方言。
 
 ## 验收命令
 

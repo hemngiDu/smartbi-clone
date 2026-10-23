@@ -12,6 +12,8 @@ import java.sql.Connection;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 
 @RestController
 @RequestMapping("/api/v1")
@@ -25,17 +27,19 @@ public class MetadataController {
     }
 
     @PostMapping("/data-sources") @ResponseStatus(HttpStatus.CREATED)
-    public DataSourceView createDataSource(@Valid @RequestBody CreateDataSource request) {
-        validateSource(request);
-        var saved = dataSources.save(new DataSourceDefinition(request.name(), request.type(), request.jdbcUrl(), request.username(), request.credentialReference()));
+    @PreAuthorize("hasAnyRole('ADMIN','EDITOR')")
+    public DataSourceView createDataSource(@Valid @RequestBody CreateDataSource request, Authentication authentication) {
+        pools.validateDefinition(request.type(), request.jdbcUrl()); validateCredential(request);
+        var saved = dataSources.save(new DataSourceDefinition(request.name(), request.type(), request.jdbcUrl(), request.username(), request.credentialReference(), authentication.getName()));
         return DataSourceView.from(saved);
     }
     @GetMapping("/data-sources")
-    public List<DataSourceView> listDataSources() { return dataSources.findAll().stream().map(DataSourceView::from).toList(); }
+    public List<DataSourceView> listDataSources(Authentication auth) { return (isAdmin(auth) ? dataSources.findAll() : dataSources.findAllByOwnerId(auth.getName())).stream().map(DataSourceView::from).toList(); }
 
     @PostMapping("/data-sources/{id}/test")
-    public ConnectionTest testDataSource(@PathVariable UUID id) {
+    public ConnectionTest testDataSource(@PathVariable UUID id, Authentication auth) {
         var source = dataSources.findById(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Data source not found"));
+        requireOwner(source.getOwnerId(), auth);
         long started = System.nanoTime();
         try (var temporary = pools.create(source); Connection connection = temporary.getConnection()) {
             return new ConnectionTest(true, (System.nanoTime()-started)/1_000_000, connection.getMetaData().getDatabaseProductName(), connection.getMetaData().getDatabaseProductVersion());
@@ -44,19 +48,21 @@ public class MetadataController {
     }
 
     @PostMapping("/datasets") @ResponseStatus(HttpStatus.CREATED)
-    public DatasetView createDataset(@Valid @RequestBody CreateDataset request) {
+    @PreAuthorize("hasAnyRole('ADMIN','EDITOR')")
+    public DatasetView createDataset(@Valid @RequestBody CreateDataset request, Authentication auth) {
         validator.validate(request.sql());
         var source = dataSources.findById(request.dataSourceId()).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Data source not found"));
-        return DatasetView.from(datasets.save(new SqlDataset(request.name(), source, request.sql().trim())));
+        requireOwner(source.getOwnerId(), auth);
+        return DatasetView.from(datasets.save(new SqlDataset(request.name(), source, request.sql().trim(), auth.getName())));
     }
     @GetMapping("/datasets") @Transactional(readOnly = true)
-    public List<DatasetView> listDatasets() { return datasets.findAll().stream().map(DatasetView::from).toList(); }
+    public List<DatasetView> listDatasets(Authentication auth) { return (isAdmin(auth) ? datasets.findAll() : datasets.findAllByOwnerId(auth.getName())).stream().map(DatasetView::from).toList(); }
 
-    private static void validateSource(CreateDataSource request) {
-        if (request.type() != DataSourceType.POSTGRESQL) throw new QueryException("DATASOURCE_TYPE_UNSUPPORTED", "Only PostgreSQL is currently implemented");
-        if (!request.jdbcUrl().startsWith("jdbc:postgresql://")) throw new QueryException("DATASOURCE_URL_INVALID", "PostgreSQL JDBC URL is required");
+    private static void validateCredential(CreateDataSource request) {
         if (request.credentialReference() == null || !request.credentialReference().startsWith("env://")) throw new QueryException("CREDENTIAL_REFERENCE_INVALID", "Use an env:// credential reference; plaintext passwords are never accepted");
     }
+    static boolean isAdmin(Authentication auth) { return auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN")); }
+    static void requireOwner(String owner, Authentication auth) { if (!isAdmin(auth) && !owner.equals(auth.getName())) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Resource access denied"); }
 
     public record CreateDataSource(@NotBlank @Size(max=120) String name, @NotNull DataSourceType type,
                                    @NotBlank String jdbcUrl, @NotBlank String username, String credentialReference) {}

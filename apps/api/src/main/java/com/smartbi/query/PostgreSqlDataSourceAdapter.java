@@ -7,9 +7,12 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class PostgreSqlDataSourceAdapter implements DataSourceAdapter {
+    private final JdbcUrlPolicy urlPolicy;
+    public PostgreSqlDataSourceAdapter(JdbcUrlPolicy urlPolicy) { this.urlPolicy = urlPolicy; }
     public boolean supports(DataSourceDefinition d) { return d.getType() == DataSourceType.POSTGRESQL; }
+    public void validateUrl(String jdbcUrl) { urlPolicy.validatePostgreSql(jdbcUrl); }
     public void configure(HikariConfig config, DataSourceDefinition d, char[] password) {
-        if (!d.getJdbcUrl().startsWith("jdbc:postgresql://")) throw new QueryException("DATASOURCE_URL_INVALID", "PostgreSQL JDBC URL is required");
+        urlPolicy.validatePostgreSql(d.getJdbcUrl());
         config.setDriverClassName("org.postgresql.Driver");
         config.setJdbcUrl(d.getJdbcUrl());
         config.setUsername(d.getUsername());

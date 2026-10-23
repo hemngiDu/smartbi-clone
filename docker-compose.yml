@@ -36,6 +36,9 @@ services:
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-smartbi}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-smartbi_dev_password}
       EXTERNAL_ANALYTICS_PASSWORD: ${EXTERNAL_ANALYTICS_PASSWORD:-compose_reader_only}
+      SMARTBI_API_KEY: ${SMARTBI_API_KEY:-local_ci_demo_key}
+      SMARTBI_ALLOWED_DB_HOSTS: analytics-db
+      SMARTBI_ALLOWED_DB_PORTS: 5432
     ports:
       - "8080:8080"
     depends_on:

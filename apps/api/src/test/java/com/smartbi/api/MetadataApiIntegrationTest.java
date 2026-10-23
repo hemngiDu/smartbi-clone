@@ -18,23 +18,39 @@ class MetadataApiIntegrationTest {
     @Autowired ObjectMapper json;
 
     @Test void createsSourceAndDatasetWithoutReturningCredentialReference() throws Exception {
-        String sourceBody = mvc.perform(post("/api/v1/data-sources").contentType(MediaType.APPLICATION_JSON)
+        String sourceBody = mvc.perform(post("/api/v1/data-sources").header("X-API-Key","test-alice-key").contentType(MediaType.APPLICATION_JSON)
             .content("{\"name\":\"platform\",\"type\":\"POSTGRESQL\",\"jdbcUrl\":\"jdbc:postgresql://postgres/smartbi\",\"username\":\"smartbi\",\"credentialReference\":\"env://SPRING_DATASOURCE_PASSWORD\"}"))
             .andExpect(status().isCreated()).andExpect(jsonPath("$.credentialReference").doesNotExist()).andReturn().getResponse().getContentAsString();
         JsonNode source = json.readTree(sourceBody);
         String datasetJson = "{\"name\":\"health_dataset\",\"dataSourceId\":\"%s\",\"sql\":\"select 1 as healthy\"}".formatted(source.get("id").asText());
-        String datasetBody = mvc.perform(post("/api/v1/datasets").contentType(MediaType.APPLICATION_JSON).content(datasetJson))
+        String datasetBody = mvc.perform(post("/api/v1/datasets").header("X-API-Key","test-alice-key").contentType(MediaType.APPLICATION_JSON).content(datasetJson))
             .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
         assertThat(json.readTree(datasetBody).get("dataSourceId").asText()).isEqualTo(source.get("id").asText());
     }
 
     @Test void rejectsMutatingSql() throws Exception {
         String body = "{\"name\":\"bad\",\"dataSourceId\":\"00000000-0000-0000-0000-000000000000\",\"sql\":\"delete from sql_dataset\"}";
-        mvc.perform(post("/api/v1/datasets").contentType(MediaType.APPLICATION_JSON).content(body)).andExpect(status().isBadRequest());
+        mvc.perform(post("/api/v1/datasets").header("X-API-Key","test-alice-key").contentType(MediaType.APPLICATION_JSON).content(body)).andExpect(status().isBadRequest());
     }
 
     @Test void healthEndpointIsUp() throws Exception {
         mvc.perform(get("/actuator/health")).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("UP"));
+    }
+
+    @Test void defaultsToDenyAndIsolatesResources() throws Exception {
+        mvc.perform(get("/api/v1/data-sources")).andExpect(status().isUnauthorized());
+        String name="private-"+java.util.UUID.randomUUID();
+        String created=mvc.perform(post("/api/v1/data-sources").header("X-API-Key","test-alice-key").contentType(MediaType.APPLICATION_JSON).content("{\"name\":\""+name+"\",\"type\":\"POSTGRESQL\",\"jdbcUrl\":\"jdbc:postgresql://postgres:5432/smartbi\",\"username\":\"reader\",\"credentialReference\":\"env://TEST_ONLY\"}"))
+            .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+        String id=json.readTree(created).get("id").asText();
+        mvc.perform(post("/api/v1/data-sources/"+id+"/test").header("X-API-Key","test-bob-key")).andExpect(status().isForbidden());
+        mvc.perform(post("/api/v1/datasets").header("X-API-Key","test-bob-key").contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"cross-"+java.util.UUID.randomUUID()+"\",\"dataSourceId\":\""+id+"\",\"sql\":\"select 1\"}")).andExpect(status().isForbidden());
+        mvc.perform(get("/api/v1/data-sources").header("X-API-Key","test-bob-key")).andExpect(status().isOk()).andExpect(jsonPath("$[?(@.id == '"+id+"')]").isEmpty());
+    }
+
+    @Test void rejectsSsrFAndDangerousJdbcParameters() throws Exception {
+        for(String url:java.util.List.of("jdbc:postgresql://169.254.169.254/meta","jdbc:postgresql://postgres:5432/smartbi?socketFactory=evil","jdbc:mysql://postgres/db"))
+            mvc.perform(post("/api/v1/data-sources").header("X-API-Key","test-alice-key").contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"bad-"+java.util.UUID.randomUUID()+"\",\"type\":\"POSTGRESQL\",\"jdbcUrl\":\""+url+"\",\"username\":\"reader\",\"credentialReference\":\"env://TEST_ONLY\"}")).andExpect(status().isBadRequest());
     }
 }
 

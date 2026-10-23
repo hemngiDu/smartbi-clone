@@ -24,6 +24,14 @@ server:
   error:
     include-message: never
 smartbi:
+  security:
+    api-keys:
+      ci: ${SMARTBI_API_KEY:}
+    roles:
+      ci: ADMIN
+  network:
+    allowed-hosts: ${SMARTBI_ALLOWED_DB_HOSTS:}
+    allowed-ports: ${SMARTBI_ALLOWED_DB_PORTS:5432}
   query:
     timeout-seconds: ${SMARTBI_QUERY_TIMEOUT_SECONDS:30}
     max-rows: ${SMARTBI_QUERY_MAX_ROWS:500}
