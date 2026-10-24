@@ -24,21 +24,22 @@ public class ExternalPoolRegistry {
                                 @Value("${smartbi.pools.connection-timeout-ms:5000}") long connectionTimeoutMs) {
         this.adapters = adapters; this.credentials = credentials; this.maximumPoolSize = maximumPoolSize; this.connectionTimeoutMs = connectionTimeoutMs;
     }
-    public DataSource get(DataSourceDefinition definition) { return pools.computeIfAbsent(definition.getId(), ignored -> create(definition)); }
+    public DataSource get(DataSourceDefinition definition) {adapterFor(definition).validateRuntime(definition);return pools.computeIfAbsent(definition.getId(), ignored -> create(definition)); }
     public void validateDefinition(com.smartbi.metadata.DataSourceType type, String jdbcUrl) { if (type != com.smartbi.metadata.DataSourceType.POSTGRESQL) throw new QueryException("DATASOURCE_TYPE_UNSUPPORTED", "Only PostgreSQL is currently implemented"); adapters.stream().filter(a -> a instanceof PostgreSqlDataSourceAdapter).map(a -> (PostgreSqlDataSourceAdapter)a).findFirst().orElseThrow().validateUrl(jdbcUrl); }
     public HikariDataSource create(DataSourceDefinition definition) {
-        var adapter = adapters.stream().filter(a -> a.supports(definition)).findFirst()
-            .orElseThrow(() -> new QueryException("DATASOURCE_TYPE_UNSUPPORTED", "Data source type is not implemented yet"));
+        var adapter = adapterFor(definition);
         char[] password = credentials.resolve(definition.getCredentialReference());
         try {
             var config = new HikariConfig();
             config.setPoolName("smartbi-" + definition.getId()); config.setMaximumPoolSize(maximumPoolSize); config.setMinimumIdle(0);
             config.setConnectionTimeout(connectionTimeoutMs); config.setValidationTimeout(Math.min(connectionTimeoutMs, 3000));
+            config.setMaxLifetime(300_000); config.setKeepaliveTime(60_000);
             config.setReadOnly(true); config.setAutoCommit(false); config.setInitializationFailTimeout(connectionTimeoutMs);
             adapter.configure(config, definition, password);
             return new HikariDataSource(config);
         } finally { Arrays.fill(password, '\0'); }
     }
+    private DataSourceAdapter adapterFor(DataSourceDefinition definition){return adapters.stream().filter(a->a.supports(definition)).findFirst().orElseThrow(()->new QueryException("DATASOURCE_TYPE_UNSUPPORTED","Data source type is not implemented yet"));}
     public void evict(UUID id) { var pool = pools.remove(id); if (pool != null) pool.close(); }
     @PreDestroy public void close() { pools.values().forEach(HikariDataSource::close); pools.clear(); }
 }

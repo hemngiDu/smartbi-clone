@@ -52,5 +52,11 @@ class MetadataApiIntegrationTest {
         for(String url:java.util.List.of("jdbc:postgresql://169.254.169.254/meta","jdbc:postgresql://postgres:5432/smartbi?socketFactory=evil","jdbc:mysql://postgres/db"))
             mvc.perform(post("/api/v1/data-sources").header("X-API-Key","test-alice-key").contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"bad-"+java.util.UUID.randomUUID()+"\",\"type\":\"POSTGRESQL\",\"jdbcUrl\":\""+url+"\",\"username\":\"reader\",\"credentialReference\":\"env://TEST_ONLY\"}")).andExpect(status().isBadRequest());
     }
+
+    @Test void rejectsCredentialReferencesOutsideServerAllowList() throws Exception {
+        mvc.perform(post("/api/v1/data-sources").header("X-API-Key","test-alice-key").contentType(MediaType.APPLICATION_JSON)
+            .content("{\"name\":\"bad-credential\",\"type\":\"POSTGRESQL\",\"jdbcUrl\":\"jdbc:postgresql://postgres:5432/smartbi\",\"username\":\"reader\",\"credentialReference\":\"env://PATH\"}"))
+            .andExpect(status().isBadRequest()).andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString(System.getenv("PATH")))));
+    }
 }
 

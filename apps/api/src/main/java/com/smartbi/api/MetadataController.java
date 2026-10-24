@@ -22,14 +22,15 @@ public class MetadataController {
     private final SqlDatasetRepository datasets;
     private final SqlSafetyValidator validator;
     private final ExternalPoolRegistry pools;
-    public MetadataController(DataSourceRepository dataSources, SqlDatasetRepository datasets, SqlSafetyValidator validator, ExternalPoolRegistry pools) {
-        this.dataSources = dataSources; this.datasets = datasets; this.validator = validator; this.pools = pools;
+    private final CredentialResolver credentials;
+    public MetadataController(DataSourceRepository dataSources, SqlDatasetRepository datasets, SqlSafetyValidator validator, ExternalPoolRegistry pools, CredentialResolver credentials) {
+        this.dataSources = dataSources; this.datasets = datasets; this.validator = validator; this.pools = pools; this.credentials = credentials;
     }
 
     @PostMapping("/data-sources") @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasAnyRole('ADMIN','EDITOR')")
     public DataSourceView createDataSource(@Valid @RequestBody CreateDataSource request, Authentication authentication) {
-        pools.validateDefinition(request.type(), request.jdbcUrl()); validateCredential(request);
+        pools.validateDefinition(request.type(), request.jdbcUrl()); credentials.validateReference(request.credentialReference());
         var saved = dataSources.save(new DataSourceDefinition(request.name(), request.type(), request.jdbcUrl(), request.username(), request.credentialReference(), authentication.getName()));
         return DataSourceView.from(saved);
     }
@@ -58,9 +59,6 @@ public class MetadataController {
     @GetMapping("/datasets") @Transactional(readOnly = true)
     public List<DatasetView> listDatasets(Authentication auth) { return (isAdmin(auth) ? datasets.findAll() : datasets.findAllByOwnerId(auth.getName())).stream().map(DatasetView::from).toList(); }
 
-    private static void validateCredential(CreateDataSource request) {
-        if (request.credentialReference() == null || !request.credentialReference().startsWith("env://")) throw new QueryException("CREDENTIAL_REFERENCE_INVALID", "Use an env:// credential reference; plaintext passwords are never accepted");
-    }
     static boolean isAdmin(Authentication auth) { return auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN")); }
     static void requireOwner(String owner, Authentication auth) { if (!isAdmin(auth) && !owner.equals(auth.getName())) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Resource access denied"); }
 

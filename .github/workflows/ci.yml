@@ -31,6 +31,7 @@ jobs:
           done
           curl --fail http://localhost:8080/actuator/health
           test "$(curl --silent -o /dev/null -w '%{http_code}' http://localhost:8080/api/v1/data-sources)" = "401"
+          test "$(curl --silent -o /dev/null -w '%{http_code}' -X POST http://localhost:8080/api/v1/data-sources -H 'X-API-Key: local_ci_demo_key' -H 'Content-Type: application/json' -d '{"name":"blocked","type":"POSTGRESQL","jdbcUrl":"jdbc:postgresql://analytics-db:5432,169.254.169.254:5432/analytics","username":"reader","credentialReference":"env://EXTERNAL_ANALYTICS_PASSWORD"}')" = "400"
           AUTH='X-API-Key: local_ci_demo_key'
           SOURCE_ID=$(curl --fail --silent -X POST http://localhost:8080/api/v1/data-sources -H "$AUTH" -H 'Content-Type: application/json' -d '{"name":"ci-analytics","type":"POSTGRESQL","jdbcUrl":"jdbc:postgresql://analytics-db:5432/analytics","username":"analytics_reader","credentialReference":"env://EXTERNAL_ANALYTICS_PASSWORD"}' | jq -r .id)
           curl --fail -X POST "http://localhost:8080/api/v1/data-sources/$SOURCE_ID/test" -H "$AUTH"
@@ -38,6 +39,10 @@ jobs:
           RESULT=$(curl --fail --silent -X POST "http://localhost:8080/api/v1/datasets/$DATASET_ID/preview" -H "$AUTH" -H 'Content-Type: application/json' -d '{"parameters":{"minimum":100},"page":0,"size":100}')
           test "$(echo "$RESULT" | jq -r .rowCount)" = "2"
           test "$(echo "$RESULT" | jq -r '.rows[0].region')" = "华东"
+          test "$(curl --silent -o /dev/null -w '%{http_code}' -X POST http://localhost:8080/api/v1/datasets -H "$AUTH" -H 'Content-Type: application/json' -d "{\"name\":\"unsafe\",\"dataSourceId\":\"$SOURCE_ID\",\"sql\":\"with changed as (delete from sales returning *) select * from changed\"}")" = "400"
+          if docker compose exec -T -e PGPASSWORD=compose_reader_only analytics-db psql -h 127.0.0.1 -U analytics_reader -d analytics -v ON_ERROR_STOP=1 -c 'create table must_not_exist(id int)'; then exit 1; fi
+          docker compose exec -T analytics-db psql -U analytics_admin -d analytics -tAc "select to_regclass('public.must_not_exist') is null" | grep -q t
+          ! docker compose logs --no-color api | grep -F 'compose_reader_only'
           docker compose ps
       - name: Compose logs
         if: always()

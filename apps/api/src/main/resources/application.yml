@@ -24,6 +24,8 @@ server:
   error:
     include-message: never
 smartbi:
+  credentials:
+    allowed-environment-variables: ${SMARTBI_ALLOWED_CREDENTIALS:}
   security:
     api-keys:
       ci: ${SMARTBI_API_KEY:}

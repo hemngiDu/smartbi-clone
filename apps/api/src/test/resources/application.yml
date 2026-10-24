@@ -10,6 +10,8 @@ spring:
     hibernate:
       ddl-auto: validate
 smartbi:
+  credentials:
+    allowed-environment-variables: TEST_ONLY,SPRING_DATASOURCE_PASSWORD
   security:
     api-keys:
       alice: test-alice-key
