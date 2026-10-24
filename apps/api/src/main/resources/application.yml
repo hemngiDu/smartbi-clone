@@ -22,5 +22,23 @@ management:
         enabled: true
 server:
   error:
-    include-message: always
+    include-message: never
+smartbi:
+  credentials:
+    allowed-environment-variables: ${SMARTBI_ALLOWED_CREDENTIALS:}
+  security:
+    api-keys:
+      ci: ${SMARTBI_API_KEY:}
+    roles:
+      ci: ADMIN
+  network:
+    allowed-hosts: ${SMARTBI_ALLOWED_DB_HOSTS:}
+    allowed-ports: ${SMARTBI_ALLOWED_DB_PORTS:5432}
+  query:
+    timeout-seconds: ${SMARTBI_QUERY_TIMEOUT_SECONDS:30}
+    max-rows: ${SMARTBI_QUERY_MAX_ROWS:500}
+    max-page-size: ${SMARTBI_QUERY_MAX_PAGE_SIZE:200}
+  pools:
+    maximum-pool-size: ${SMARTBI_POOL_MAX_SIZE:5}
+    connection-timeout-ms: ${SMARTBI_POOL_CONNECTION_TIMEOUT_MS:5000}
 

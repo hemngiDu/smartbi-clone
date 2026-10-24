@@ -1,0 +1,7 @@
+package com.smartbi.query;
+import org.junit.jupiter.api.Test;import static org.assertj.core.api.Assertions.*;
+class SqlSafetyValidatorTest{
+ private final SqlSafetyValidator validator=new SqlSafetyValidator();
+ @Test void acceptsComplexPostgresReadsAndLegalKeywordIdentifiers(){for(String sql:java.util.List.of("select 'delete; --' value, 1::numeric /* harmless */","with totals as (select sum(amount) value from sales) select * from totals","select update, delete, \"select\" from audit_log","select jsonb_path_query(payload, '$.items[*]') from events where tags @> array['safe']::text[]","select count(*) filter (where amount > 0) over (partition by region) from sales","select * from (select id from sales union all select id from archive) s"))assertThatCode(()->validator.validate(sql)).as(sql).doesNotThrowAnyException();}
+ @Test void rejectsWritesInCtesSelectIntoStackingLocksAndSideEffects(){for(String sql:java.util.List.of("delete from sales","with changed as (delete from sales returning *) select * from changed","with changed as (update sales set amount=0 returning *) select * from changed","select * into backup from sales","select pg_sleep(1)","select public.pg_terminate_backend(42)","select nextval('seq')","select * from sales for update","select 1; drop table sales")){try{validator.validate(sql);org.junit.jupiter.api.Assertions.fail("accepted unsafe SQL: "+sql);}catch(QueryException expected){}}}
+}

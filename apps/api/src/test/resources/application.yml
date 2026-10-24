@@ -9,4 +9,19 @@ spring:
     open-in-view: false
     hibernate:
       ddl-auto: validate
+smartbi:
+  credentials:
+    allowed-environment-variables: TEST_ONLY,SPRING_DATASOURCE_PASSWORD
+  security:
+    api-keys:
+      alice: test-alice-key
+      bob: test-bob-key
+      admin: test-admin-key
+    roles:
+      alice: EDITOR
+      bob: EDITOR
+      admin: ADMIN
+  network:
+    allowed-hosts: postgres,analytics-db,localhost
+    allowed-ports: 5432
 

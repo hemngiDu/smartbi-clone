@@ -1,0 +1,5 @@
+package com.smartbi.query;
+import org.junit.jupiter.api.Test;import java.lang.reflect.Field;import java.sql.Statement;import java.util.UUID;import java.util.concurrent.ConcurrentHashMap;import static org.assertj.core.api.Assertions.*;import static org.mockito.Mockito.*;
+class QueryCancellationAuthorizationTest{
+ @Test void onlyOwnerOrAdminCanCancel()throws Exception{var service=new QueryExecutionService(null,null,1,10,10);Statement statement=mock(Statement.class);UUID id=UUID.randomUUID();Field field=QueryExecutionService.class.getDeclaredField("active");field.setAccessible(true);@SuppressWarnings("unchecked") var active=(ConcurrentHashMap<UUID,QueryExecutionService.ActiveQuery>)field.get(service);active.put(id,new QueryExecutionService.ActiveQuery("alice",statement));assertThatThrownBy(()->service.cancel(id,"bob",false)).isInstanceOf(org.springframework.security.access.AccessDeniedException.class);verify(statement,never()).cancel();assertThat(service.cancel(id,"alice",false)).isTrue();verify(statement).cancel();}
+}

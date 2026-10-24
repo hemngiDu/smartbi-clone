@@ -12,15 +12,17 @@ public class SqlDataset {
     @ManyToOne(fetch = FetchType.LAZY, optional = false) @JoinColumn(name = "data_source_id") private DataSourceDefinition dataSource;
     @Column(name = "sql_text", nullable = false, columnDefinition = "text") private String sqlText;
     @Column(name = "created_at", nullable = false) private Instant createdAt;
+    @Column(name = "owner_id", nullable = false, length = 120) private String ownerId;
 
     protected SqlDataset() {}
-    public SqlDataset(String name, DataSourceDefinition dataSource, String sqlText) {
-        this.id = UUID.randomUUID(); this.name = name; this.dataSource = dataSource; this.sqlText = sqlText; this.createdAt = Instant.now();
+    public SqlDataset(String name, DataSourceDefinition dataSource, String sqlText, String ownerId) {
+        this.id = UUID.randomUUID(); this.name = name; this.dataSource = dataSource; this.sqlText = sqlText; this.ownerId = ownerId; this.createdAt = Instant.now();
     }
     public UUID getId() { return id; }
     public String getName() { return name; }
     public DataSourceDefinition getDataSource() { return dataSource; }
     public String getSqlText() { return sqlText; }
     public Instant getCreatedAt() { return createdAt; }
+    public String getOwnerId() { return ownerId; }
 }
 

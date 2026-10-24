@@ -14,17 +14,20 @@ public class DataSourceDefinition {
     @Column(nullable = false) private String username;
     @Column(name = "credential_reference", length = 500) private String credentialReference;
     @Column(name = "created_at", nullable = false) private Instant createdAt;
+    @Column(name = "owner_id", nullable = false, length = 120) private String ownerId;
 
     protected DataSourceDefinition() {}
-    public DataSourceDefinition(String name, DataSourceType type, String jdbcUrl, String username, String credentialReference) {
+    public DataSourceDefinition(String name, DataSourceType type, String jdbcUrl, String username, String credentialReference, String ownerId) {
         this.id = UUID.randomUUID(); this.name = name; this.type = type; this.jdbcUrl = jdbcUrl;
-        this.username = username; this.credentialReference = credentialReference; this.createdAt = Instant.now();
+        this.username = username; this.credentialReference = credentialReference; this.ownerId = ownerId; this.createdAt = Instant.now();
     }
     public UUID getId() { return id; }
     public String getName() { return name; }
     public DataSourceType getType() { return type; }
     public String getJdbcUrl() { return jdbcUrl; }
     public String getUsername() { return username; }
+    public String getCredentialReference() { return credentialReference; }
     public Instant getCreatedAt() { return createdAt; }
+    public String getOwnerId() { return ownerId; }
 }
 
