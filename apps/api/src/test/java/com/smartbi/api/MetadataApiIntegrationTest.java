@@ -58,5 +58,15 @@ class MetadataApiIntegrationTest {
             .content("{\"name\":\"bad-credential\",\"type\":\"POSTGRESQL\",\"jdbcUrl\":\"jdbc:postgresql://postgres:5432/smartbi\",\"username\":\"reader\",\"credentialReference\":\"env://PATH\"}"))
             .andExpect(status().isBadRequest()).andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString(System.getenv("PATH")))));
     }
+
+    @Test void savesReopensAndIsolatesReportTemplate() throws Exception {
+        String unique="report-"+java.util.UUID.randomUUID();
+        String payload="{\"name\":\""+unique+"\",\"definition\":{\"rows\":4,\"columns\":3,\"cells\":[{\"row\":0,\"column\":0,\"value\":\"Title\",\"style\":{\"bold\":true}}],\"merges\":[],\"rowHeights\":{\"0\":32},\"columnWidths\":{\"0\":140}}}";
+        String body=mvc.perform(post("/api/v1/report-templates").header("X-API-Key","test-alice-key").contentType(MediaType.APPLICATION_JSON).content(payload))
+            .andExpect(status().isCreated()).andExpect(jsonPath("$.definition.cells[0].value").value("Title")).andReturn().getResponse().getContentAsString();
+        String id=json.readTree(body).get("id").asText();
+        mvc.perform(get("/api/v1/report-templates/"+id).header("X-API-Key","test-alice-key")).andExpect(status().isOk()).andExpect(jsonPath("$.name").value(unique));
+        mvc.perform(get("/api/v1/report-templates/"+id).header("X-API-Key","test-bob-key")).andExpect(status().isForbidden());
+    }
 }
 
