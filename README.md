@@ -1,6 +1,6 @@
 # SmartBI Clone
 
-Vue 3 + Spring Boot 数据源查询闭环：平台元数据与外部 PostgreSQL 严格分离，SQL 数据集始终在绑定数据源上执行。
+Vue 3 + Spring Boot 数据查询与电子表格报表闭环：平台元数据与外部 PostgreSQL 严格分离，SQL 数据集始终在绑定数据源上执行。
 
 ## 一键启动
 
@@ -41,6 +41,8 @@ mvn spring-boot:run
 - `GET /api/v1/datasets`：数据集列表
 - `POST /api/v1/datasets/{id}/preview`：参数化分页预览，最多返回 500 行
 - `DELETE /api/v1/queries/{queryId}`：取消正在运行的查询（queryId 由客户端预先生成）
+- `POST/GET/PUT /api/v1/report-templates`：保存、列出、重新打开和更新电子表格模板
+- `POST /api/v1/report-templates/{id}/render`：使用参数在服务端确定性渲染模板
 
 数据源密码仅通过服务端环境变量解析，例如 `env://EXTERNAL_ANALYTICS_PASSWORD`，且变量名还必须命中 `SMARTBI_ALLOWED_CREDENTIALS`；响应、异常和审计日志均不包含密码、凭据引用或凭据值。Compose 会启动独立的 `analytics-db` 并创建只读 `analytics_reader` 演示账号。
 
@@ -51,6 +53,8 @@ mvn spring-boot:run
 ```
 
 安全边界：空或未知 API key 默认拒绝；`ADMIN` 可跨所有者访问，`EDITOR` 可创建资源，其余身份只读。非管理员的数据源、数据集、预览、连接测试与查询取消均按持久化所有者隔离。
+
+报表设计器真实呈现并保存单元格样式、合并、行高、列宽和数据集字段绑定。显式 `regionId` 将同一数据集的多个字段组成统一扩展区域：每区域只查询一次并按同一结果行对齐；旧模板会按数据集、方向和锚点自动分组。服务端先确定性插入行列并平移静态内容、尺寸和合并区域，再计算 `=A1+B1` 与基础 `=SUM(A1:B9)`，引用、值、语法和循环错误会返回明确错误值。布局冲突返回 422。完整兼容与坐标规则见 [docs/spreadsheet-report-mvp.md](docs/spreadsheet-report-mvp.md)。
 
 PostgreSQL JDBC URL 必须是规范的单主机、单端口 URI，主机和端口必须命中 `SMARTBI_ALLOWED_DB_HOSTS` / `SMARTBI_ALLOWED_DB_PORTS`。拒绝多主机、user-info、fragment、全部连接参数、编码绕过、其他协议及非允许目标；建池前重新解析 DNS，并拒绝 unspecified、link-local 与 multicast 地址。DNS 可能在校验后变化，因此生产部署仍须用防火墙/NetworkPolicy 把 API 的数据库出口限制到批准的 IP/CIDR 和端口，不能把应用层 URL 校验当作完整 SSRF 隔离。Compose 的 `analytics-db` 是 CI/演示用允许目标。
 
@@ -76,5 +80,5 @@ curl http://localhost:8080/actuator/health
 docker compose down -v
 ```
 
-CI 还会实际验证：未认证默认拒绝、多主机 JDBC URL 拒绝、写入型 CTE 拒绝、只读数据库角色无法建表、查询闭环可用，以及 API 日志不出现演示密码。测试证据以 PR checks 的不可变日志和提交内 `docs/security-test-evidence.md` 为准。
+CI 还会实际验证：未认证默认拒绝、多主机 JDBC URL 拒绝、写入型 CTE 拒绝、只读数据库角色无法建表、查询闭环、统一报表扩展与布局后公式可用，以及 API 日志不出现演示密码。测试证据以 PR checks 的不可变日志和提交内 `docs/security-test-evidence.md` 为准。
 
