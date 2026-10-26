@@ -42,7 +42,7 @@ jobs:
           REPORT_PAYLOAD=$(jq -n --arg dataset "$DATASET_ID" '{name:"ci-sales-report",definition:{rows:8,columns:3,cells:[{row:0,column:0,value:"销售报表",style:{bold:true,background:"#dbeafe"}},{row:2,column:0,value:"",binding:{datasetId:$dataset,field:"region",expansion:"DOWN",aggregate:"NONE",regionId:"sales-detail"}},{row:2,column:1,value:"",binding:{datasetId:$dataset,field:"amount",expansion:"DOWN",aggregate:"NONE",regionId:"sales-detail"}},{row:4,column:0,value:"合计"},{row:4,column:1,value:"=SUM(B3:B4)"}],merges:[{startRow:0,startColumn:0,endRow:0,endColumn:1}],rowHeights:{"4":42},columnWidths:{"0":160}}}')
           REPORT_ID=$(curl --fail --silent -X POST http://localhost:8080/api/v1/report-templates -H "$AUTH" -H 'Content-Type: application/json' -d "$REPORT_PAYLOAD" | jq -r .id)
           RENDERED=$(curl --fail --silent -X POST "http://localhost:8080/api/v1/report-templates/$REPORT_ID/render" -H "$AUTH" -H 'Content-Type: application/json' -d '{"parameters":{"minimum":100}}')
-          test "$(echo "$RENDERED" | jq -r '[.cells[] | select(.column == 0 and .row >= 2) | .value] | join(",")')" = "华东,华北"
+          test "$(echo "$RENDERED" | jq -r '[.cells[] | select(.column == 0 and (.row == 2 or .row == 3)) | .value] | join(",")')" = "华东,华北"
           test "$(echo "$RENDERED" | jq -r '.cells[] | select(.row == 5 and .column == 0) | .value')" = "合计"
           echo "$RENDERED" | jq -e '.cells[] | select(.row == 5 and .column == 1) | .value == 493.70'
           test "$(echo "$RENDERED" | jq -r '.rowHeights["5"]')" = "42"
